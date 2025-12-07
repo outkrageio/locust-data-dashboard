@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: locust_data_test
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ../locust-data-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/locust_data_test
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8500:8500"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      sh -c "
+        uv run alembic upgrade head &&
+        uv run fastapi dev app/main.py --host 0.0.0.0 --port 8500
+      "
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8500
+      BASE_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      BASE_URL: http://dashboard:3000
+      NEXT_PUBLIC_API_URL: http://backend:8500
+      CI: true
+    depends_on:
+      dashboard:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    command: npx playwright test
+    volumes:
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+
+volumes:
+  postgres_test_data:

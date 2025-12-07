@@ -65,7 +65,15 @@ jobs:
       working-directory: backend
       run: |
         uv run fastapi dev app/main.py --port 8500 &
-        sleep 10
+        echo "Waiting for backend to be ready..."
+        for i in {1..30}; do
+          if curl -f http://localhost:8500/docs &>/dev/null; then
+            echo "Backend is ready!"
+            break
+          fi
+          echo "Attempt $i: Backend not ready yet..."
+          sleep 2
+        done
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/locust_data
 
