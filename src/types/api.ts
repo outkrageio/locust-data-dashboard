@@ -70,3 +70,27 @@ export interface RequestStats {
   min_response_time: number;
   max_response_time: number;
 }
+
+export interface EndpointStats {
+  endpoint: string;
+  method: string;
+  total_requests: number;
+  failure_count: number;
+  failure_rate: number;
+  avg_response_time: number;
+  min_response_time: number;
+  max_response_time: number;
+  std_dev_response_time: number;
+}
+
+export interface TestLog {
+  id: string;
+  test_run_id: string;
+  timestamp: string;
+  level: string;
+  logger: string;
+  message: string;
+  exception: string | null;
+  created_at: string;
+  updated_at: string;
+}

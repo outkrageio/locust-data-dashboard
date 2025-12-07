@@ -1,4 +1,4 @@
-import type { TestRun, StatsSnapshot, RequestLog, Failure, RequestStats } from "@/types/api";
+import type { TestRun, StatsSnapshot, RequestLog, Failure, RequestStats, EndpointStats, TestLog } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_PREFIX = "/api/v1";
@@ -96,8 +96,11 @@ export const api = {
     },
 
     stats: (testRunId: string) => {
-      const searchParams = new URLSearchParams({ test_run_id: testRunId });
-      return fetchApi<RequestStats>(`/requests/stats?${searchParams.toString()}`);
+      return fetchApi<RequestStats>(`/requests/stats/${testRunId}`);
+    },
+
+    endpointStats: (testRunId: string) => {
+      return fetchApi<EndpointStats[]>(`/requests/stats/${testRunId}/endpoints`);
     },
 
     batch: (data: Partial<RequestLog>[]) =>
@@ -120,6 +123,23 @@ export const api = {
       fetchApi<Failure>("/failures", {
         method: "POST",
         body: JSON.stringify(data),
+      }),
+  },
+
+  logs: {
+    list: (params: { test_run_id: string; level?: string; skip?: number; limit?: number }) => {
+      const searchParams = new URLSearchParams({ test_run_id: params.test_run_id });
+      if (params?.level) searchParams.set("level", params.level);
+      if (params?.skip !== undefined) searchParams.set("skip", params.skip.toString());
+      if (params?.limit !== undefined) searchParams.set("limit", params.limit.toString());
+
+      return fetchApi<TestLog[]>(`/logs?${searchParams.toString()}`);
+    },
+
+    batch: (data: Partial<TestLog>[]) =>
+      fetchApi<void>("/logs/batch", {
+        method: "POST",
+        body: JSON.stringify({ logs: data }),
       }),
   },
 };

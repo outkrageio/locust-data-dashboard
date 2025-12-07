@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Users, Activity, Clock, TrendingUp, AlertCircle, Server } from "lucide-react";
+import { ArrowLeft, Users, Activity, Clock, TrendingUp, AlertCircle, Server, Download, FileJson, FileText, Maximize2 } from "lucide-react";
 import Link from "next/link";
 import ReactECharts from "echarts-for-react";
 
@@ -24,9 +27,59 @@ function getStatusBadge(status: string) {
   }
 }
 
+function getLogLevelBadge(level: string) {
+  switch (level.toUpperCase()) {
+    case "ERROR":
+      return "bg-red-100 text-red-700 border-red-300";
+    case "WARNING":
+      return "bg-amber-100 text-amber-700 border-amber-300";
+    case "INFO":
+      return "bg-blue-100 text-blue-700 border-blue-300";
+    case "DEBUG":
+      return "bg-gray-100 text-gray-700 border-gray-300";
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-300";
+  }
+}
+
+async function downloadReport(testRunId: string, format: "json" | "csv") {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const url = `${API_URL}/api/v1/test-runs/${testRunId}/report?format=${format}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download report: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+
+    const contentDisposition = response.headers.get("Content-Disposition");
+    const filename = contentDisposition
+      ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+      : `test_run_report.${format}`;
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error("Error downloading report:", error);
+    alert("Failed to download report. Please try again.");
+  }
+}
+
+type ChartType = "response_time" | "rps" | "user_count" | "failure_rate" | null;
+
 export default function TestRunDetailsPage() {
   const params = useParams();
   const testRunId = params.id as string;
+  const [expandedChart, setExpandedChart] = useState<ChartType>(null);
+  const [logLevelFilter, setLogLevelFilter] = useState<string | undefined>(undefined);
 
   const { data: testRun, isLoading: testRunLoading } = useQuery({
     queryKey: ["testRun", testRunId],
@@ -48,6 +101,12 @@ export default function TestRunDetailsPage() {
   const { data: requestStats } = useQuery({
     queryKey: ["requestStats", testRunId],
     queryFn: () => api.requests.stats(testRunId),
+    enabled: !!testRunId,
+  });
+
+  const { data: logs } = useQuery({
+    queryKey: ["logs", testRunId, logLevelFilter],
+    queryFn: () => api.logs.list({ test_run_id: testRunId, level: logLevelFilter }),
     enabled: !!testRunId,
   });
 
@@ -335,9 +394,29 @@ export default function TestRunDetailsPage() {
             </h1>
             <p className="text-gray-600 text-lg">{testRun.project}</p>
           </div>
-          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusBadge(testRun.status)}`}>
-            {testRun.status.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadReport(testRunId, "json")}
+              className="gap-2"
+            >
+              <FileJson className="h-4 w-4" />
+              JSON
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadReport(testRunId, "csv")}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              CSV
+            </Button>
+            <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusBadge(testRun.status)}`}>
+              {testRun.status.toUpperCase()}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -394,7 +473,15 @@ export default function TestRunDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {responseTimeChartOption && (
           <Card className="shadow-xl border-gray-100">
-            <CardContent className="p-6">
+            <CardContent className="p-6 relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 z-10"
+                onClick={() => setExpandedChart("response_time")}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
               <ReactECharts option={responseTimeChartOption} style={{ height: "400px" }} />
             </CardContent>
           </Card>
@@ -402,7 +489,15 @@ export default function TestRunDetailsPage() {
 
         {rpsChartOption && (
           <Card className="shadow-xl border-gray-100">
-            <CardContent className="p-6">
+            <CardContent className="p-6 relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 z-10"
+                onClick={() => setExpandedChart("rps")}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
               <ReactECharts option={rpsChartOption} style={{ height: "400px" }} />
             </CardContent>
           </Card>
@@ -410,7 +505,15 @@ export default function TestRunDetailsPage() {
 
         {userCountChartOption && (
           <Card className="shadow-xl border-gray-100">
-            <CardContent className="p-6">
+            <CardContent className="p-6 relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 z-10"
+                onClick={() => setExpandedChart("user_count")}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
               <ReactECharts option={userCountChartOption} style={{ height: "400px" }} />
             </CardContent>
           </Card>
@@ -418,7 +521,15 @@ export default function TestRunDetailsPage() {
 
         {failureRateChartOption && (
           <Card className="shadow-xl border-gray-100">
-            <CardContent className="p-6">
+            <CardContent className="p-6 relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 z-10"
+                onClick={() => setExpandedChart("failure_rate")}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
               <ReactECharts option={failureRateChartOption} style={{ height: "400px" }} />
             </CardContent>
           </Card>
@@ -486,6 +597,89 @@ export default function TestRunDetailsPage() {
         </Card>
       )}
 
+      {/* Test Logs */}
+      {logs && logs.length > 0 && (
+        <Card className="shadow-xl border-gray-100 mt-8">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Test Logs</CardTitle>
+                <CardDescription>Captured logs from the test run</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={logLevelFilter === undefined ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLogLevelFilter(undefined)}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={logLevelFilter === "ERROR" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLogLevelFilter("ERROR")}
+                >
+                  Error
+                </Button>
+                <Button
+                  variant={logLevelFilter === "WARNING" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLogLevelFilter("WARNING")}
+                >
+                  Warning
+                </Button>
+                <Button
+                  variant={logLevelFilter === "INFO" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLogLevelFilter("INFO")}
+                >
+                  Info
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Level</TableHead>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Logger</TableHead>
+                  <TableHead>Message</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id} className={log.exception ? "bg-red-50" : ""}>
+                    <TableCell>
+                      <Badge className={`${getLogLevelBadge(log.level)} border`}>
+                        {log.level}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600 font-mono">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600 font-mono">
+                      {log.logger}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="text-gray-900">{log.message}</div>
+                        {log.exception && (
+                          <pre className="mt-2 text-xs bg-red-100 p-2 rounded overflow-x-auto">
+                            {log.exception}
+                          </pre>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Test Metadata */}
       {testRun.test_metadata && (
         <Card className="shadow-xl border-gray-100 mt-8">
@@ -507,6 +701,59 @@ export default function TestRunDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Expanded Chart Modals */}
+      <Dialog open={expandedChart === "response_time"} onOpenChange={() => setExpandedChart(null)}>
+        <DialogContent className="w-[95vw] max-w-[1400px]">
+          <DialogHeader onClose={() => setExpandedChart(null)}>
+            <DialogTitle>Response Time Over Time</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {responseTimeChartOption && (
+              <ReactECharts option={responseTimeChartOption} style={{ height: "700px", width: "100%" }} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={expandedChart === "rps"} onOpenChange={() => setExpandedChart(null)}>
+        <DialogContent className="w-[95vw] max-w-[1400px]">
+          <DialogHeader onClose={() => setExpandedChart(null)}>
+            <DialogTitle>Requests Per Second</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {rpsChartOption && (
+              <ReactECharts option={rpsChartOption} style={{ height: "700px", width: "100%" }} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={expandedChart === "user_count"} onOpenChange={() => setExpandedChart(null)}>
+        <DialogContent className="w-[95vw] max-w-[1400px]">
+          <DialogHeader onClose={() => setExpandedChart(null)}>
+            <DialogTitle>Active Users Over Time</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {userCountChartOption && (
+              <ReactECharts option={userCountChartOption} style={{ height: "700px", width: "100%" }} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={expandedChart === "failure_rate"} onOpenChange={() => setExpandedChart(null)}>
+        <DialogContent className="w-[95vw] max-w-[1400px]">
+          <DialogHeader onClose={() => setExpandedChart(null)}>
+            <DialogTitle>Failure Rate Over Time</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            {failureRateChartOption && (
+              <ReactECharts option={failureRateChartOption} style={{ height: "700px", width: "100%" }} />
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
