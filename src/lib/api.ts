@@ -44,12 +44,14 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
 export const api = {
   testRuns: {
-    list: (params?: { skip?: number; limit?: number; project?: string; status?: string }) => {
+    list: (params?: { skip?: number; limit?: number; project?: string; status?: string; start_date?: string; end_date?: string }) => {
       const searchParams = new URLSearchParams();
       if (params?.skip !== undefined) searchParams.set("skip", params.skip.toString());
       if (params?.limit !== undefined) searchParams.set("limit", params.limit.toString());
       if (params?.project) searchParams.set("project", params.project);
       if (params?.status) searchParams.set("status", params.status);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
 
       const query = searchParams.toString();
       return fetchApi<TestRun[]>(`/test-runs${query ? `?${query}` : ""}`);

@@ -12,10 +12,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { Clock, Users, Activity } from "lucide-react";
+import { Clock, Users, Activity, Calendar, X } from "lucide-react";
+import { useState } from "react";
 
 function getStatusBadge(status: string) {
   switch (status.toLowerCase()) {
@@ -31,11 +33,25 @@ function getStatusBadge(status: string) {
 }
 
 export default function TestRunsPage() {
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
   const { data: testRuns, isLoading, error } = useQuery({
-    queryKey: ["testRuns"],
-    queryFn: () => api.testRuns.list({ limit: 100 }),
+    queryKey: ["testRuns", startDate, endDate],
+    queryFn: () => api.testRuns.list({
+      limit: 100,
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+    }),
     refetchInterval: 5000, // Refetch every 5 seconds to catch running tests
   });
+
+  const clearFilters = () => {
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const hasActiveFilters = startDate || endDate;
 
   if (error) {
     return (
@@ -60,6 +76,55 @@ export default function TestRunsPage() {
         </h1>
         <p className="text-gray-600 text-lg">View and analyze your Locust load testing results</p>
       </div>
+
+      {/* Date Range Filter */}
+      <Card className="mb-6 shadow-lg border-gray-100">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Start Date
+              </label>
+              <input
+                type="datetime-local"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                End Date
+              </label>
+              <input
+                type="datetime-local"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            {hasActiveFilters && (
+              <Button
+                onClick={clearFilters}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-4 text-sm text-gray-600 flex items-center gap-2">
+              <Badge variant="secondary">
+                Filtered Results: {testRuns?.length || 0} test runs
+              </Badge>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
