@@ -35,23 +35,29 @@ function getStatusBadge(status: string) {
 export default function TestRunsPage() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>("");
 
   const { data: testRuns, isLoading, error } = useQuery({
-    queryKey: ["testRuns", startDate, endDate],
+    queryKey: ["testRuns", startDate, endDate, selectedProject],
     queryFn: () => api.testRuns.list({
       limit: 100,
       start_date: startDate || undefined,
       end_date: endDate || undefined,
+      project: selectedProject || undefined,
     }),
     refetchInterval: 5000, // Refetch every 5 seconds to catch running tests
   });
 
+  // Get unique projects from test runs for the filter dropdown
+  const projects = Array.from(new Set(testRuns?.map((tr) => tr.project) || [])).sort();
+
   const clearFilters = () => {
     setStartDate("");
     setEndDate("");
+    setSelectedProject("");
   };
 
-  const hasActiveFilters = startDate || endDate;
+  const hasActiveFilters = startDate || endDate || selectedProject;
 
   if (error) {
     return (
@@ -77,10 +83,28 @@ export default function TestRunsPage() {
         <p className="text-gray-600 text-lg">View and analyze your Locust load testing results</p>
       </div>
 
-      {/* Date Range Filter */}
+      {/* Filters */}
       <Card className="mb-6 shadow-lg border-gray-100">
         <CardContent className="p-6">
           <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Project
+              </label>
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+              >
+                <option value="">All Projects</option>
+                {projects.map((project) => (
+                  <option key={project} value={project}>
+                    {project}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
