@@ -94,3 +94,11 @@ export interface TestLog {
   created_at: string;
   updated_at: string;
 }
+
+export interface BandwidthStats {
+  total_bytes: number;
+  total_mb: number;
+  total_gb: number;
+  avg_bytes_per_request: number;
+  total_requests: number;
+}

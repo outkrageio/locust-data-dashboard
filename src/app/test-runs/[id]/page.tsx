@@ -110,6 +110,12 @@ export default function TestRunDetailsPage() {
     enabled: !!testRunId,
   });
 
+  const { data: bandwidthStats } = useQuery({
+    queryKey: ["bandwidthStats", testRunId],
+    queryFn: () => api.requests.bandwidthStats(testRunId),
+    enabled: !!testRunId,
+  });
+
   if (testRunLoading) {
     return (
       <div className="container mx-auto p-8">
@@ -676,6 +682,60 @@ export default function TestRunDetailsPage() {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bandwidth/Network Stats */}
+      {bandwidthStats && bandwidthStats.total_bytes > 0 && (
+        <Card className="shadow-xl border-gray-100 mt-8">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+            <CardTitle>Network & Bandwidth</CardTitle>
+            <CardDescription>Data transfer statistics for this test run</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="border-l-4 border-blue-500 pl-4">
+                <div className="text-sm text-gray-500 uppercase tracking-wide">Total Data</div>
+                <div className="text-3xl font-bold text-gray-900 mt-1">
+                  {bandwidthStats.total_gb > 0.1
+                    ? `${bandwidthStats.total_gb} GB`
+                    : `${bandwidthStats.total_mb} MB`}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {bandwidthStats.total_bytes.toLocaleString()} bytes
+                </div>
+              </div>
+
+              <div className="border-l-4 border-purple-500 pl-4">
+                <div className="text-sm text-gray-500 uppercase tracking-wide">Avg Per Request</div>
+                <div className="text-3xl font-bold text-gray-900 mt-1">
+                  {(bandwidthStats.avg_bytes_per_request / 1024).toFixed(2)} KB
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {bandwidthStats.avg_bytes_per_request.toFixed(0)} bytes
+                </div>
+              </div>
+
+              <div className="border-l-4 border-emerald-500 pl-4">
+                <div className="text-sm text-gray-500 uppercase tracking-wide">Total Requests</div>
+                <div className="text-3xl font-bold text-gray-900 mt-1">
+                  {bandwidthStats.total_requests.toLocaleString()}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">with response data</div>
+              </div>
+
+              <div className="border-l-4 border-amber-500 pl-4">
+                <div className="text-sm text-gray-500 uppercase tracking-wide">Data/Request Ratio</div>
+                <div className="text-3xl font-bold text-gray-900 mt-1">
+                  {bandwidthStats.total_requests > 0
+                    ? ((bandwidthStats.total_bytes / bandwidthStats.total_requests / 1024) | 0)
+                    : 0}{" "}
+                  KB
+                </div>
+                <div className="text-xs text-gray-400 mt-1">average transfer</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,4 @@
-import type { TestRun, StatsSnapshot, RequestLog, Failure, RequestStats, EndpointStats, TestLog } from "@/types/api";
+import type { TestRun, StatsSnapshot, RequestLog, Failure, RequestStats, EndpointStats, TestLog, BandwidthStats } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_PREFIX = "/api/v1";
@@ -103,6 +103,10 @@ export const api = {
 
     endpointStats: (testRunId: string) => {
       return fetchApi<EndpointStats[]>(`/requests/stats/${testRunId}/endpoints`);
+    },
+
+    bandwidthStats: (testRunId: string) => {
+      return fetchApi<BandwidthStats>(`/requests/stats/${testRunId}/bandwidth`);
     },
 
     batch: (data: Partial<RequestLog>[]) =>
