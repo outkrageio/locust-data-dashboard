@@ -74,6 +74,25 @@ npm run test:e2e:headed
 npm run test:e2e:debug
 ```
 
+## Test Data
+
+The E2E tests require seeded test data to run successfully. The backend includes a `seed_test_data.py` script that creates:
+
+- **3 Test Runs**: Completed, Running, and Failed states
+- **5 Stats Snapshots**: Performance metrics over time
+- **10 Request Logs**: API request history
+- **1 Failure Record**: Example failure tracking
+- **3 Test Logs**: Application logs at different levels
+
+The GitHub Actions workflow automatically seeds this data before running tests.
+
+For local testing:
+```bash
+# From backend directory
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/locust_data_test \
+  uv run python seed_test_data.py
+```
+
 ## Test Structure
 
 ```
